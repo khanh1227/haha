@@ -4,18 +4,54 @@
   <meta charset="UTF-8">
   <title>Ngân hay dỗii 😄</title>
   <style>
-    html, body {
-      margin: 0; padding: 0;
-      width: 100%; height: 100%;
-      background: black;
-      overflow: hidden;
+    html, body {margin:0;padding:0;width:100%;height:100%;background:black;overflow:hidden;}
+    #screen1, #screen2 {position:fixed;top:0;left:0;width:100vw;height:100vh;display:flex;align-items:center;justify-content:center;}
+    #screen1 {background:black;z-index:2;}
+    #screen2 {z-index:1;}
+    #yeuthivao {
+      font-size:2rem;
+      padding:1em 2em;
+      border-radius:1em;
+      border:none;
+      background:linear-gradient(90deg,#ffb6c1,#dda0dd);
+      color:#222;
+      font-weight:bold;
+      cursor:pointer;
+      box-shadow:0 4px 16px #0008;
+      transition:transform 0.1s;
     }
-    canvas { display: block; }
+    #yeuthivao:active {transform:scale(0.96);}
+    canvas {display:block;}
   </style>
 </head>
 <body>
-  <canvas id="c"></canvas>
+  <!-- Màn hình 1 -->
+  <div id="screen1">
+    <div style="text-align:center;">
+      <div style="font-size:3rem; margin-bottom:0.5em;">😄😁💖</div>
+      <div style="font-size:2.2rem; font-weight:bold; color:#fff; margin-bottom:0.3em; text-shadow:0 2px 8px #f0f;">
+        Chào Ngân!
+      </div>
+      <div style="font-size:1.2rem; color:#ffe; margin-bottom:1.5em;">
+        <br>
+        Nhấn nút bên dưới nhé!
+      </div>
+      <button id="yeuthivao">Yêu thì nhấn 😄😁</button>
+    </div>
+  </div>
+  <!-- Màn hình 2 -->
+  <div id="screen2" style="display:none;">
+    <canvas id="c"></canvas>
+  </div>
   <script>
+    // Chuyển màn hình khi bấm nút
+    document.getElementById('yeuthivao').onclick = function() {
+      document.getElementById('screen1').style.display = 'none';
+      document.getElementById('screen2').style.display = 'flex';
+      if(window.resizeCanvasHeart) window.resizeCanvasHeart();
+    };
+
+    // --- CODE TRÁI TIM GIỮ NGUYÊN ---
     // CẤU HÌNH
     const nameStr = "Ngân ";  // tên 
     const borderColor = "violet";  // màu
@@ -27,12 +63,9 @@
     const canvas = document.getElementById("c");
     const ctx = canvas.getContext("2d");
     let W, H, centerX, centerY, scale;
-    let borderPoints = [];
-    let innerBorderPoints = [];
-    let evenBorderPoints = [];
-    let evenInnerBorderPoints = [];
+    let borderPoints = [], innerBorderPoints = [], evenBorderPoints = [], evenInnerBorderPoints = [];
 
-    function resize() {
+    function resizeCanvasHeart() {
       W = canvas.width = window.innerWidth;
       H = canvas.height = window.innerHeight;
       centerX = W/2; centerY = H/2 - 40;
@@ -47,8 +80,8 @@
       evenBorderPoints = getEvenlySpacedPoints(borderPoints, borderPoints.length);
       evenInnerBorderPoints = getEvenlySpacedPoints(innerBorderPoints, innerBorderPoints.length);
     }
-    window.addEventListener("resize", resize);
-    resize();
+    window.resizeCanvasHeart = resizeCanvasHeart;
+    window.addEventListener("resize", resizeCanvasHeart);
 
     // TÍNH ĐIỂM VIỀN TRÁI TIM
     function buildBorderPoints() {
@@ -64,8 +97,6 @@
         borderPoints.push({ x: px, y: py, t });
       }
     }
-
-    // TÍNH ĐIỂM VIỀN TRÁI TIM NHỎ HƠN (viền ảo bên trong)
     function buildInnerBorderPoints() {
       innerBorderPoints = [];
       const innerScale = scale * 0.7;
@@ -80,11 +111,8 @@
         innerBorderPoints.push({ x: px, y: py, t });
       }
     }
-
-    // LẤY CÁC ĐIỂM CÁCH ĐỀU THEO ĐỘ DÀI CUNG
     function getEvenlySpacedPoints(points, count) {
-      let dists = [0];
-      let total = 0;
+      let dists = [0], total = 0;
       for (let i = 1; i < points.length; i++) {
         const dx = points[i].x - points[i-1].x;
         const dy = points[i].y - points[i-1].y;
@@ -107,7 +135,6 @@
       return result;
     }
 
-    // Particle 
     class Particle {
       constructor(start, end, char) {
         this.x = start.x; this.y = start.y;
@@ -126,7 +153,7 @@
         this.y += this.vy;
       }
       draw() {
-        ctx.globalAlpha = Math.max(this.life / particleLife, 0); // mờ dần và biến mất
+        ctx.globalAlpha = Math.max(this.life / particleLife, 0);
         ctx.fillStyle = borderColor;
         ctx.fillText(this.char, this.x, this.y);
         ctx.globalAlpha = 1;
@@ -139,8 +166,6 @@
 
     function loop() {
       ctx.clearRect(0,0,W,H);
-
-      // Sinh particles, chạy từ đỉnh trên xuống đáy dưới theo viền đều
       if (!loop.charIndex) loop.charIndex = 0;
       for (let i = 0; i < particleCountPerFrame; i++) {
         const idx = Math.floor(borderProgress) % evenBorderPoints.length;
@@ -151,18 +176,36 @@
         loop.charIndex++;
         borderProgress += evenBorderPoints.length / (particleCountPerFrame * 12);
       }
-
-      // Vẽ & lọc particles
       particles = particles.filter(p => {
         p.update();
         if (p.alive()) { p.draw(); return true; }
         return false;
       });
-
       requestAnimationFrame(loop);
     }
 
-    loop();
+    // Khởi động trái tim khi màn hình 2 hiện ra
+    document.getElementById('screen2').addEventListener('transitionstart', function(){
+      resizeCanvasHeart();
+    });
+    // Nếu vào thẳng màn hình 2 (F5), vẫn chạy
+    if(document.getElementById('screen2').style.display !== 'none') resizeCanvasHeart();
+
+    // Chỉ chạy loop khi canvas hiện
+    let started = false;
+    function startHeart() {
+      if (!started) { started = true; loop(); }
+    }
+    document.getElementById('screen2').addEventListener('transitionend', startHeart);
+    // Nếu không dùng transition, gọi luôn
+    document.getElementById('screen2').onmouseenter = startHeart;
+    // Hoặc gọi luôn sau khi chuyển màn
+    document.getElementById('yeuthivao').onclick = function() {
+      document.getElementById('screen1').style.display = 'none';
+      document.getElementById('screen2').style.display = 'flex';
+      resizeCanvasHeart();
+      startHeart();
+    };
   </script>
 </body>
 </html>
