@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>Ngân hay dỗii 😄</title>
+  <style>
+    html, body {
+      margin: 0; padding: 0;
+      width: 100%; height: 100%;
+      background: black;
+      overflow: hidden;
+    }
+    canvas { display: block; }
+  </style>
+</head>
+<body>
+  <canvas id="c"></canvas>
+  <script>
+    // CẤU HÌNH
+    const nameStr = "Ngân ";  // tên 
+    const borderColor = "violet";  // màu
+    const particleCountPerFrame = 8;
+    const particleSpeed = 1.2;
+    const particleLife = 90;
+
+    // KHỞI TẠO CANVAS & BIẾN
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+    let W, H, centerX, centerY, scale;
+    let borderPoints = [];
+    let innerBorderPoints = [];
+    let evenBorderPoints = [];
+    let evenInnerBorderPoints = [];
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+      centerX = W/2; centerY = H/2 - 40;
+      scale = Math.min(W, H)/35;
+      ctx.font = `bold ${Math.max(16, Math.floor(scale*1.2))}px monospace`;
+      ctx.textBaseline = "middle";
+      ctx.textAlign = "center";
+      ctx.shadowColor = "red";
+      ctx.shadowBlur = 8;
+      buildBorderPoints();
+      buildInnerBorderPoints();
+      evenBorderPoints = getEvenlySpacedPoints(borderPoints, borderPoints.length);
+      evenInnerBorderPoints = getEvenlySpacedPoints(innerBorderPoints, innerBorderPoints.length);
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    // TÍNH ĐIỂM VIỀN TRÁI TIM
+    function buildBorderPoints() {
+      borderPoints = [];
+      for (let t = Math.PI/2; t < Math.PI/2 + Math.PI*2; t += 0.015) {
+        const x = 16*Math.sin(t)**3;
+        const y = 13*Math.cos(t)
+                -5*Math.cos(2*t)
+                -2*Math.cos(3*t)
+                - Math.cos(4*t);
+        const px = centerX + x*scale;
+        const py = centerY - y*scale;
+        borderPoints.push({ x: px, y: py, t });
+      }
+    }
+
+    // TÍNH ĐIỂM VIỀN TRÁI TIM NHỎ HƠN (viền ảo bên trong)
+    function buildInnerBorderPoints() {
+      innerBorderPoints = [];
+      const innerScale = scale * 0.7;
+      for (let t = Math.PI/2; t < Math.PI/2 + Math.PI*2; t += 0.015) {
+        const x = 16*Math.sin(t)**3;
+        const y = 13*Math.cos(t)
+                -5*Math.cos(2*t)
+                -2*Math.cos(3*t)
+                - Math.cos(4*t);
+        const px = centerX + x*innerScale;
+        const py = centerY - y*innerScale;
+        innerBorderPoints.push({ x: px, y: py, t });
+      }
+    }
+
+    // LẤY CÁC ĐIỂM CÁCH ĐỀU THEO ĐỘ DÀI CUNG
+    function getEvenlySpacedPoints(points, count) {
+      let dists = [0];
+      let total = 0;
+      for (let i = 1; i < points.length; i++) {
+        const dx = points[i].x - points[i-1].x;
+        const dy = points[i].y - points[i-1].y;
+        total += Math.hypot(dx, dy);
+        dists.push(total);
+      }
+      let result = [];
+      for (let i = 0; i < count; i++) {
+        const target = i * total / count;
+        let j = 1;
+        while (j < dists.length && dists[j] < target) j++;
+        const t = (target - dists[j-1]) / (dists[j] - dists[j-1]);
+        const x = points[j-1].x + (points[j].x - points[j-1].x) * t;
+        const y = points[j-1].y + (points[j].y - points[j-1].y) * t;
+        const tVal = points[j-1].t !== undefined && points[j].t !== undefined
+          ? points[j-1].t + (points[j].t - points[j-1].t) * t
+          : undefined;
+        result.push({ x, y, t: tVal });
+      }
+      return result;
+    }
+
+    // Particle 
+    class Particle {
+      constructor(start, end, char) {
+        this.x = start.x; this.y = start.y;
+        this.tx = end.x; this.ty = end.y;
+        this.life = particleLife;
+        this.char = char;
+        const dx = this.tx - this.x;
+        const dy = this.ty - this.y;
+        const len = Math.sqrt(dx*dx + dy*dy);
+        this.vx = dx/len * particleSpeed;
+        this.vy = dy/len * particleSpeed;
+      }
+      update() {
+        this.life--;
+        this.x += this.vx;
+        this.y += this.vy;
+      }
+      draw() {
+        ctx.globalAlpha = Math.max(this.life / particleLife, 0); // mờ dần và biến mất
+        ctx.fillStyle = borderColor;
+        ctx.fillText(this.char, this.x, this.y);
+        ctx.globalAlpha = 1;
+      }
+      alive() { return this.life > 0; }
+    }
+
+    let particles = [];
+    let borderProgress = 0;
+
+    function loop() {
+      ctx.clearRect(0,0,W,H);
+
+      // Sinh particles, chạy từ đỉnh trên xuống đáy dưới theo viền đều
+      if (!loop.charIndex) loop.charIndex = 0;
+      for (let i = 0; i < particleCountPerFrame; i++) {
+        const idx = Math.floor(borderProgress) % evenBorderPoints.length;
+        const start = evenBorderPoints[idx];
+        const end = evenInnerBorderPoints[idx];
+        const ch = nameStr[loop.charIndex % nameStr.length];
+        particles.push(new Particle(start, end, ch));
+        loop.charIndex++;
+        borderProgress += evenBorderPoints.length / (particleCountPerFrame * 12);
+      }
+
+      // Vẽ & lọc particles
+      particles = particles.filter(p => {
+        p.update();
+        if (p.alive()) { p.draw(); return true; }
+        return false;
+      });
+
+      requestAnimationFrame(loop);
+    }
+
+    loop();
+  </script>
+</body>
+</html>
